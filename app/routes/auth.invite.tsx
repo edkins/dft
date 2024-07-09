@@ -4,14 +4,17 @@ import { useEffect, useState } from "react";
 import { ExternalLink } from "~/components/external-link";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { ActionArgs, json } from "@remix-run/node";
+import { ActionArgs, json, redirect } from "@remix-run/node/dist";
 import { Button } from "~/components/ui/button";
 import va from "@vercel/analytics";
 import { Loader2 } from "lucide-react";
 
 export async function action(args: ActionArgs) {
   try {
-    return await auth.registerUserFromInvitation(args)
+    const data = await args.request.formData();
+    const name = data.get('name') as string;
+    const user = await auth.registerUserFromInvitation({name});
+    return auth.redirectAsLoggedIn(args.request, user);
   } catch (error: any) {
     // Handle errors in client.
     return json({ error: error.message }, { status: 500 })

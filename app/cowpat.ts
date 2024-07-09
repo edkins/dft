@@ -122,9 +122,12 @@ export function cowpatify<R extends UserRequired, T extends UserRow>(config: Con
     },
 
     // called from auth.invite
-    async registerUserFromInvitation({ name }: {
-      name: string,
-    }) {
+    async registerUserFromInvitation({ name }: {name: string}) {
+      if (!name) throw new Error("Name is required.");
+      const user = await config.users.findUnique({ where: { name } });
+      if (user) {
+        throw new Error("User already exists.");
+      }
       return await config.users.create({ data: { name } as R })
     },
 

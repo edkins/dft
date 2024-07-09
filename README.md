@@ -129,7 +129,7 @@ Once a case has been added, participants can begin the deliberation process by n
 2. **Generate Prisma Schema**: `npx prisma generate`
 3. **Environment Configuration**: Duplicate `.env.example` to create `.env` and populate it with relevant values.
 4. **Run Development Server**: `npm run dev`
-5. **Run Postgres Database with Docker**: `docker run --name dft-postgres -e POSTGRES_PASSWORD=mypassword -d postgres`
+5. **Run Postgres Database with Docker**: `docker run --name dft-postgres -e POSTGRES_PASSWORD=mypassword -d ankane/pgvector`
 
 ## Database Evolution
 

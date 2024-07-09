@@ -1,5 +1,6 @@
 import { ArticulatorConfig } from "../articulator-config"
 import { definitionOfASourceOfMeaning } from "../prompt-segments"
+import { chatModel } from "~/config.server"
 
 const exampleCards = `{
   "evaluation_criteria":[
@@ -176,7 +177,7 @@ Below are some critiques of values cards, and how they could be improved by foll
 
 const config: ArticulatorConfig = {
   name: "default",
-  model: "gpt-4-0613",
+  model: chatModel,
   prompts: {
     main: {
       prompt: mainPrompt,

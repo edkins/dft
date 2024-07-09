@@ -1,5 +1,6 @@
 import { ArticulatorConfig } from "../articulator-config"
 import { definitionOfASourceOfMeaning } from "../prompt-segments"
+import { chatModel } from "~/config.server"
 
 const exampleCards = `{
   "evaluation_criteria":[
@@ -180,7 +181,7 @@ ${cardCritiques}`
 
 const config: ArticulatorConfig = {
   name: "general",
-  model: "gpt-4-0613",
+  model: chatModel,
   prompts: {
     main: {
       prompt: mainPrompt,

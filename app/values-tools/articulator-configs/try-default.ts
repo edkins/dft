@@ -1,5 +1,6 @@
 import type { ArticulatorConfig } from "~/values-tools/articulator-config"
 import { attentionPoliciesCriteria, definitionOfASourceOfMeaning, embodiedJustice, exampleCards, faithInPeople } from "../prompt-segments"
+import { chatModel } from "~/config.server"
 
 const mainPrompt = `You are a meaning assistant, helping a user understand what their underlying "sources of meaning" are.
 
@@ -131,7 +132,7 @@ In your response, include a critique of the articulated "values_card" if it does
 
 const config: ArticulatorConfig = {
   name: "default",
-  model: "gpt-4-0613",
+  model: chatModel,
   prompts: {
     main: {
       prompt: mainPrompt,

@@ -1,12 +1,12 @@
 import { DeduplicatedCard, ValuesCard } from "@prisma/client"
 import { embeddingService as embeddings } from "./embedding"
 import { ChatCompletionFunctions } from "openai-edge"
-import { db, inngest, openai } from "~/config.server"
+import { db, inngest, openai, chatModel } from "~/config.server"
 import { attentionPoliciesCriteria } from "./prompt-segments"
 import { DBSCAN } from 'density-clustering'
 
 export const generation = 3
-const model = "gpt-4-1106-preview"
+const model = chatModel
 
 //
 // Prompts.

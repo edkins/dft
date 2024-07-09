@@ -51,3 +51,5 @@ export const articulatorConfigs: { [key: string]: ArticulatorConfig } = {
   default: dftDefaultConfig,
   general: dftGeneralConfig,
 }
+
+export const chatModel = process.env.OPENAI_MODEL ?? "gpt-4o";

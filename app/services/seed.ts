@@ -1,5 +1,5 @@
 import { ChatCompletionFunctions } from "openai-edge"
-import { db, inngest, openai } from "~/config.server"
+import { db, inngest, openai, chatModel } from "~/config.server"
 import { ValuesCardData } from "~/lib/consts"
 import {
   cardCritiques,
@@ -57,7 +57,7 @@ async function generateContexts(
   valuesCards: ValuesCardData[]
 ): Promise<string[]> {
   const response = await openai.createChatCompletion({
-    model: "gpt-4-1106-preview",
+    model: chatModel,
     messages: [
       { role: "system", content: generateContextsPrompt },
       { role: "user", content: JSON.stringify(valuesCards) },
@@ -139,7 +139,7 @@ async function generateValuesCards(
   question: string
 ): Promise<ValuesCardData[]> {
   const response = await openai.createChatCompletion({
-    model: "gpt-4-1106-preview",
+    model: chatModel,
     messages: [
       { role: "system", content: generateCardPrompt },
       { role: "user", content: question },

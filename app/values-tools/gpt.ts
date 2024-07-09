@@ -1,8 +1,8 @@
-import { openai } from "~/config.server"
+import { openai, chatModel } from "~/config.server"
 
 export async function gpt4(systemPrompt: string, userMessage: string, temperature: number = 0.4) {
   const result = await openai.createChatCompletion({
-    model: "gpt-4-0613",
+    model: chatModel,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },

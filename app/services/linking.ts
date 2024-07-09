@@ -4,7 +4,7 @@ import {
   PrismaClient,
   Vote,
 } from "@prisma/client"
-import { db, inngest, isChatGpt } from "~/config.server"
+import { db, inngest, isChatGpt, chatModel } from "~/config.server"
 import { Configuration, OpenAIApi } from "openai-edge"
 import { embeddingService as embeddings } from "../values-tools/embedding"
 
@@ -146,7 +146,7 @@ async function clusterCanonicalCards(contexts: string[]) {
   )
 
   const res = await openai.createChatCompletion({
-    model: "gpt-4-1106-preview",
+    model: chatModel,
     temperature: 0.0,
     messages: [
       { role: "system", content: clusterPrompt(contexts) },
@@ -243,7 +243,7 @@ export async function generateTransitions(cardIds: number[]): Promise<{
   )
 
   const res = await openai.createChatCompletion({
-    model: "gpt-4-1106-preview",
+    model: chatModel,
     temperature: 0.3,
     messages: [
       { role: "system", content: transitionsPrompt },

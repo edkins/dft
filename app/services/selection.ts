@@ -1,5 +1,5 @@
 import { CanonicalValuesCard, PrismaClient, ValuesCard } from "@prisma/client"
-import { db } from "../config.server"
+import { db, chatModel } from "../config.server"
 import { ChatCompletionFunctions, OpenAIApi } from "openai-edge"
 import { v4 as uuid } from "uuid"
 import { embeddingService as embedding } from "../values-tools/embedding"
@@ -186,7 +186,7 @@ export default class SelectionService {
 
     // Call prompt.
     const response = await this.openai.createChatCompletion({
-      model: "gpt-4-1106-preview",
+      model: chatModel,
       messages: [
         { role: "system", content: system },
         { role: "user", content: message },

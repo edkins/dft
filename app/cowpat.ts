@@ -13,20 +13,14 @@ function env(name: string,) {
   throw new Error(`Missing environment variable: ${name}`)
 }
 
-function randomCode(digits: number) {
-  let code = ''
-  for (let i = 0; i < digits; i++) {
-    code += Math.floor(Math.random() * 10)
-  }
-  return code
-}
-
 interface UserRequired {
-  name: string
+  name: string,
+  isAdmin: boolean,
 }
 
 interface UserRow {
   id: number | string
+  isAdmin: boolean
   name: string
   role: string[]
 }
@@ -39,6 +33,7 @@ export type Config<R extends UserRequired, T extends UserRow> = {
   }
   inviteCode: {
     findUnique: (args: { where: { code: string } }) => Promise<{ role: string, remaining: number } | null>
+    update: (args: { where: { code: string }, data: { remaining: number } }) => Promise<{}>
   }
 }
 
@@ -132,13 +127,29 @@ export function cowpatify<R extends UserRequired, T extends UserRow>(config: Con
     },
 
     // called from auth.invite
-    async registerUserFromInvitation({ name }: {name: string}) {
+    async registerUserFromInvitation({ name, code }: {name: string, code: string}) {
       if (!name) throw new Error("Name is required.");
       const user = await config.users.findUnique({ where: { name } });
+      const code_info = await config.inviteCode.findUnique({ where: { code } });
       if (user) {
         throw new Error("User already exists.");
       }
-      return await config.users.create({ data: { name } as R })
+      if (code_info === null) {
+        throw new Error("Invalid code.");
+      }
+      if (code_info.remaining <= 0) {
+        throw new Error("Code expired.");
+      }
+      const role = code_info.role;
+      let isAdmin = false;
+      if (role === 'USER') {
+      } else if (role === 'ADMIN' ) {
+        isAdmin = true;
+      } else {
+        throw new Error(`Unexpected role ${role}`);
+      }
+      await config.inviteCode.update({ where: { code }, data: { remaining: code_info.remaining - 1 }});
+      return await config.users.create({ data: { name, isAdmin } as R })
     },
 
     // called from auth.invite

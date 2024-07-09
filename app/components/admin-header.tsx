@@ -25,6 +25,7 @@ export default function AdminHeader() {
       <NavLink to="/admin/votes">Votes</NavLink>
       <NavLink to="/admin/upgrades">Upgrades</NavLink>
       <NavLink to="/admin/merge">Merge</NavLink>
+      <NavLink to="/admin/users">Users</NavLink>
     </header>
   )
 }

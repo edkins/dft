@@ -13,7 +13,8 @@ export async function action(args: ActionArgs) {
   try {
     const data = await args.request.formData();
     const name = data.get('name') as string;
-    const user = await auth.registerUserFromInvitation({name});
+    const code = new URL(args.request.url).searchParams.get('c') as string;
+    const user = await auth.registerUserFromInvitation({name, code});
     return auth.redirectAsLoggedIn(args.request, user);
   } catch (error: any) {
     // Handle errors in client.
@@ -23,28 +24,17 @@ export async function action(args: ActionArgs) {
 
 export default function InviteScreen() {
   const [searchParams] = useSearchParams()
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [showError, setShowError] = useState(false)
   const [name, setName] = useState<string>("")
   const actionData = useActionData<typeof action>()
   const code = searchParams.get("c");
   const [role, setRole] = useState<string>("UNKNOWN");
-/*
-  if (code === null || code === 'EXPIRED') {
-    return (
-      <div className="grid h-screen place-items-center p-8">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 max-w-sm">
-        <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Get Started</h1>
-        </div>
-        </div>
-      </div>
-    );
-  }
-*/
+
   useEffect(() => {
     if (code === null || !/^[a-zA-Z0-9]{20}$/.test(code)) {
       setRole("INVALID");
+      setIsLoading(false);
     } else {
       fetch(`/api/checkcode?c=${code}`).then(async (res) => {
         if (res.status === 200) {
@@ -53,6 +43,7 @@ export default function InviteScreen() {
         } else {
           setRole("INVALID");
         }
+        setIsLoading(false);
       });
     }
   }, [code]);
@@ -74,14 +65,23 @@ export default function InviteScreen() {
     <div className="grid h-screen place-items-center p-8">
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 max-w-sm">
         <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Get Started {role}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Get Started</h1>
           <p className="text-sm text-muted-foreground">
-            You have been invited to join Democratic Fine-Tuning
+          { role === 'USER' ?
+              <>You have been invited to join Democratic Fine-Tuning</>
+            : role === 'ADMIN' ?
+            <>You have been invited to join Democratic Fine-Tuning as an Admin</>
+            : role === 'INVALID' ?
+            <>Invalid invite link</>
+            : role === 'EXPIRED' ?
+            <>Invite link expired</>
+            :
+              <>Checking invite</>
+          }
           </p>
         </div>
         <div className="grid gap-6">
           <Form method="post" onSubmit={() => setIsLoading(true)}>
-            <input type="hidden" name="autoregister" value="YES" />
             <div className="grid gap-2">
               <div className="grid gap-1">
                 <Label className="sr-only" htmlFor="name">

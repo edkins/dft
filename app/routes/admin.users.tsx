@@ -1,5 +1,6 @@
 import { json, LoaderArgs } from "@remix-run/node"
 import { useLoaderData } from "@remix-run/react"
+import { ExternalLink } from "~/components/external-link";
 import { Button } from "~/components/ui/button"
 import { auth, db } from "~/config.server"
 
@@ -14,9 +15,16 @@ export async function loader({request}: LoaderArgs) {
       isAdmin: true,
       id: true,
     },
+  });
+  const invites = await db.inviteCode.findMany({
+    select: {
+      code: true,
+      role: true,
+      remaining: true,
+    }
   })
 
-  return json({ users })
+  return json({ users, invites })
 }
 
 export async function action({ request }: LoaderArgs) {
@@ -42,6 +50,28 @@ export default function AdminUsers() {
   return (
     <div className="grid h-screen place-items-center p-8">
         <h1 className="text-2xl font-bold mb-4 px-4 py-2">Users</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>Invite code</th>
+              <th>Remaining</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.invites.map((invite) =>
+              <tr key={invite.code}>
+                <td>
+                  <ExternalLink href={`http://localhost:3000/auth/invite?c=${invite.code}`}>
+                    {invite.role}
+                  </ExternalLink>
+                </td>
+                <td>
+                  {invite.remaining}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
         <table>
           <thead>
             <tr>

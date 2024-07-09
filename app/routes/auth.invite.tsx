@@ -68,7 +68,9 @@ export default function InviteScreen() {
           }
           </p>
         </div>
-        <div className="grid gap-6">
+
+        { (role === 'USER' || role === 'ADMIN') ?
+        <><div className="grid gap-6">
           <Form method="post" onSubmit={() => setIsLoading(true)}>
             <div className="grid gap-2">
               <div className="grid gap-1">
@@ -108,7 +110,7 @@ export default function InviteScreen() {
             Institute for Meaning Alignment
           </ExternalLink>
           .
-        </p>
+        </p></> : <></>}
         <div
           className={`mt-6 w-full text-center transition-opacity duration-300 ease-in-out ${showError ? "opacity-100" : "opacity-0"
             }`}

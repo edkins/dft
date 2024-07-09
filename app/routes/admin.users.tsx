@@ -1,9 +1,13 @@
-import { json } from "@remix-run/node"
-import { NavLink, Outlet, useLoaderData } from "@remix-run/react"
+import { json, LoaderArgs } from "@remix-run/node"
+import { useLoaderData } from "@remix-run/react"
 import { Button } from "~/components/ui/button"
-import { db } from "~/config.server"
+import { auth, db } from "~/config.server"
 
-export async function loader() {
+export async function loader({request}: LoaderArgs) {
+  const current_user = await auth.getCurrentUser(request);
+  if (!current_user?.isAdmin) {
+    return json({ error: "You are not an admin." }, { status: 401 });
+  }
   const users = await db.user.findMany({
     select: {
       name: true,
@@ -15,14 +19,25 @@ export async function loader() {
   return json({ users })
 }
 
-async function removeUser(id:number) {
-  await fetch(`/api/removeuser?id=${id}`, {
-    method: 'POST',
-  });
-}
+export async function action({ request }: LoaderArgs) {
+  if (request.method !== 'DELETE') {
+    return json({ error: "Method not allowed" }, { status: 405 });
+  }
+  const current_user = await auth.getCurrentUser(request);
+  if (!current_user?.isAdmin) {
+    return json({ error: "You are not an admin." }, { status: 401 });
+  }
+  const id = parseInt(new URL(request.url).searchParams.get("id") || '');
+  await db.user.delete({ where: { id } });
+  return json({});
+};
 
 export default function AdminUsers() {
   const data = useLoaderData<typeof loader>();
+  const removeUser = (id: number) => async () => {
+    await fetch(`/admin/users?id=${id}`, { method: 'DELETE' });
+    window.location.reload();
+  };
 
   return (
     <div className="grid h-screen place-items-center p-8">
@@ -40,7 +55,7 @@ export default function AdminUsers() {
             <tr key={user.id}>
                 <td>{user.name}</td>
                 <td>{`${user.isAdmin}`}</td>
-                <td><Button onClick={() => removeUser(user.id)}>
+                <td><Button onClick={removeUser(user.id)}>
                     Remove
                 </Button></td>
             </tr>

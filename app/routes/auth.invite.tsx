@@ -1,10 +1,10 @@
-import { Form, useActionData, useSearchParams } from "@remix-run/react";
+import { Form, useActionData, useLoaderData, useSearchParams } from "@remix-run/react";
 import { auth } from "~/config.server";
 import { useEffect, useState } from "react";
 import { ExternalLink } from "~/components/external-link";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { ActionArgs, json, redirect } from "@remix-run/node/dist";
+import { ActionArgs, json, LoaderArgs, redirect } from "@remix-run/node/dist";
 import { Button } from "~/components/ui/button";
 import va from "@vercel/analytics";
 import { Loader2 } from "lucide-react";
@@ -22,31 +22,21 @@ export async function action(args: ActionArgs) {
   }
 }
 
+export async function loader({request}: LoaderArgs) {
+  const code = new URL(request.url).searchParams.get("c");
+  let role = 'INVALID';
+  if (code !== null && /^[a-zA-Z0-9]{20}$/.test(code)) {
+    role = await auth.checkCode(code);
+  }
+  return json({role});
+}
+
 export default function InviteScreen() {
-  const [searchParams] = useSearchParams()
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [showError, setShowError] = useState(false)
   const [name, setName] = useState<string>("")
   const actionData = useActionData<typeof action>()
-  const code = searchParams.get("c");
-  const [role, setRole] = useState<string>("UNKNOWN");
-
-  useEffect(() => {
-    if (code === null || !/^[a-zA-Z0-9]{20}$/.test(code)) {
-      setRole("INVALID");
-      setIsLoading(false);
-    } else {
-      fetch(`/api/checkcode?c=${code}`).then(async (res) => {
-        if (res.status === 200) {
-          const { role } = await res.json();
-          setRole(role);
-        } else {
-          setRole("INVALID");
-        }
-        setIsLoading(false);
-      });
-    }
-  }, [code]);
+  const {role} = useLoaderData<typeof loader>();
 
   useEffect(() => {
     if (actionData && actionData?.status !== 200) {
@@ -71,12 +61,10 @@ export default function InviteScreen() {
               <>You have been invited to join Democratic Fine-Tuning</>
             : role === 'ADMIN' ?
             <>You have been invited to join Democratic Fine-Tuning as an Admin</>
-            : role === 'INVALID' ?
-            <>Invalid invite link</>
             : role === 'EXPIRED' ?
             <>Invite link expired</>
             :
-              <>Checking invite</>
+            <>Invalid invite link</>
           }
           </p>
         </div>

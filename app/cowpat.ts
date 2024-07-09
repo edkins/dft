@@ -37,6 +37,9 @@ export type Config<R extends UserRequired, T extends UserRow> = {
     findUnique: (args: { where: { name: string } | { id: number } }) => Promise<T | null>
     create: (args: { data: R }) => Promise<T>
   }
+  inviteCode: {
+    findUnique: (args: { where: { code: string } }) => Promise<{ role: string, remaining: number } | null>
+  }
 }
 
 export function cowpatify<R extends UserRequired, T extends UserRow>(config: Config<R, T>) {
@@ -120,6 +123,14 @@ export function cowpatify<R extends UserRequired, T extends UserRow>(config: Con
       });
     },
 
+    async checkCode(code: string | null) {
+      if (code === null) return 'INVALID';
+      const info = await config.inviteCode.findUnique({ where: { code } });
+      if (!info) return 'INVALID';
+      if (info.remaining <= 0) return 'EXPIRED';
+      return info.role;
+    },
+
     // called from auth.invite
     async registerUserFromInvitation({ name }: {name: string}) {
       if (!name) throw new Error("Name is required.");
@@ -130,7 +141,7 @@ export function cowpatify<R extends UserRequired, T extends UserRow>(config: Con
       return await config.users.create({ data: { name } as R })
     },
 
-    // called from auth.code
+    // called from auth.invite
     async redirectAsLoggedIn(request: Request, user: T) {
       const redirectTo = await redirectCookie.parse(request.headers.get("Cookie") || "") || "/"
       const session = await punk.storage.getSession()

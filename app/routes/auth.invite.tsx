@@ -27,8 +27,35 @@ export default function InviteScreen() {
   const [showError, setShowError] = useState(false)
   const [name, setName] = useState<string>("")
   const actionData = useActionData<typeof action>()
-
-  const redirect = searchParams.get("redirect") as string
+  const code = searchParams.get("c");
+  const [role, setRole] = useState<string>("UNKNOWN");
+/*
+  if (code === null || code === 'EXPIRED') {
+    return (
+      <div className="grid h-screen place-items-center p-8">
+        <div className="mx-auto flex w-full flex-col justify-center space-y-6 max-w-sm">
+        <div className="flex flex-col space-y-2 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">Get Started</h1>
+        </div>
+        </div>
+      </div>
+    );
+  }
+*/
+  useEffect(() => {
+    if (code === null || !/^[a-zA-Z0-9]{20}$/.test(code)) {
+      setRole("INVALID");
+    } else {
+      fetch(`/api/checkcode?c=${code}`).then(async (res) => {
+        if (res.status === 200) {
+          const { role } = await res.json();
+          setRole(role);
+        } else {
+          setRole("INVALID");
+        }
+      });
+    }
+  }, [code]);
 
   useEffect(() => {
     if (actionData && actionData?.status !== 200) {
@@ -41,20 +68,19 @@ export default function InviteScreen() {
         clearTimeout(timeout)
       }
     }
-  }, [actionData])
+  }, [actionData]);
 
   return (
     <div className="grid h-screen place-items-center p-8">
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 max-w-sm">
         <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Get Started</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Get Started {role}</h1>
           <p className="text-sm text-muted-foreground">
             You have been invited to join Democratic Fine-Tuning
           </p>
         </div>
         <div className="grid gap-6">
           <Form method="post" onSubmit={() => setIsLoading(true)}>
-            <input type="hidden" name="redirect" value={redirect || ""} />
             <input type="hidden" name="autoregister" value="YES" />
             <div className="grid gap-2">
               <div className="grid gap-1">

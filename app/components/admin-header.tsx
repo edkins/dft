@@ -20,6 +20,7 @@ export default function AdminHeader() {
       <b className="text-lg mr-2">Admin</b>
       <NavLink to="/admin/cases">Cases</NavLink>
       <NavLink to="/admin/cards">Cards</NavLink>
+      <NavLink to="/admin/originalcards">Original Cards</NavLink>
       <NavLink to="/admin/chats">Chats</NavLink>
       <NavLink to="/admin/links">Links</NavLink>
       <NavLink to="/admin/votes">Votes</NavLink>

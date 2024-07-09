@@ -25,7 +25,7 @@ function UserMenu({ user }: { user: User }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="pl-0">
-              <span className="ml-2">{user?.email}</span>
+              <span className="ml-2">{user?.name}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -34,7 +34,7 @@ function UserMenu({ user }: { user: User }) {
             className="w-[200px]"
           >
             <DropdownMenuItem className="flex-col items-start">
-              <div className="text-xs text-zinc-500">{user?.email}</div>
+              <div className="text-xs text-zinc-500">{user?.name}</div>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-xs" onClick={handleSubmit}>

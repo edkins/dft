@@ -1,5 +1,5 @@
 import { PrismaClient, Prisma } from "@prisma/client"
-import { cowpunkify } from "cowpunk-auth"
+import { cowpatify } from "./cowpat"
 import { Inngest } from "inngest"
 import { Configuration, OpenAIApi } from "openai-edge"
 import { DialogueEvaluatorConfig } from "./values-tools/dialogue-evaluator"

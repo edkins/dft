@@ -33,7 +33,6 @@ interface UserRow {
 
 export type Config<R extends UserRequired, T extends UserRow> = {
   site: string
-  loginFrom: string
   users: {
     findUnique: (args: { where: { name: string } | { id: number } }) => Promise<T | null>
     create: (args: { data: R }) => Promise<T>

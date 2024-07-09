@@ -46,14 +46,10 @@ model Demographic {
   employmentStatus       String? // e.g., "Employed", "Unemployed", "Self-Employed", "Retired"
 }
 
-model EmailCodes {
-  email              String   @unique
-  loginCode          String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  loginCodeExpiresAt DateTime
-  register           Boolean  @default(false)
-  extraData          Json?
+model InviteCode {
+  code      String @unique
+  remaining Int
+  role      String
 }
 
 enum ValueCardQuality {

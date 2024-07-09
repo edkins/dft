@@ -11,9 +11,7 @@ export const db = new PrismaClient()
 
 export const auth = cowpatify({
   site: "Democratic Fine-Tuning",
-  loginFrom: "Democratic Fine-Tuning <info@meaningalignment.org>",
   users: db.user,
-  emailCodes: db.emailCodes,
 })
 
 export const inngest = new Inngest({

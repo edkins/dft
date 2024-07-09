@@ -17,7 +17,6 @@ export async function loader() {
         select: {
           id: true,
           name: true,
-          email: true,
         },
       },
     },
@@ -71,7 +70,6 @@ export default function AdminChats() {
                 className="border-b border-gray-300 py-2 px-4 py-2 "
               >
                 <div>{edge.user.name}</div>
-                <div>{edge.user.email}</div>
                 <div className="text-xs text-neutral-500">{edge.createdAt}</div>
                 <StatusBadge status={edge.relationship} />
               </li>

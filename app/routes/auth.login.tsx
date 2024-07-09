@@ -10,12 +10,9 @@ import { ExternalLink } from "~/components/external-link"
 import va from "@vercel/analytics"
 
 export async function action(args: ActionArgs) {
-  try {
-    return await auth.loginSubmitAction(args)
-  } catch (error: any) {
-    // Handle errors in client.
-    return json({ error: error.message }, { status: 500 })
-  }
+  const data = await args.request.formData();
+  const name = data.get('name') as string;
+  return await auth.registerUserFromInvitation({name});
 }
 
 export default function LoginScreen() {

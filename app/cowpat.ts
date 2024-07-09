@@ -21,19 +21,13 @@ function randomCode(digits: number) {
   return code
 }
 
-interface EmailCodeRow {
-  email: string
-  loginCode: string
-  loginCodeExpiresAt: Date
-}
-
 interface UserRequired {
-  email: string
+  name: string
 }
 
 interface UserRow {
   id: number | string
-  email: string
+  name: string
   role: string[]
 }
 
@@ -41,17 +35,8 @@ export type Config<R extends UserRequired, T extends UserRow> = {
   site: string
   loginFrom: string
   users: {
-    findUnique: (args: { where: { email: string } | { id: number } }) => Promise<T | null>
+    findUnique: (args: { where: { name: string } | { id: number } }) => Promise<T | null>
     create: (args: { data: R }) => Promise<T>
-  }
-  emailCodes: {
-    findUnique: (args: { where: { email: string } }) => Promise<EmailCodeRow | null>
-    findFirst: (args: { where: { email: string, loginCode: string } }) => Promise<EmailCodeRow | null>
-    upsert: (args: {
-      where: { email: string },
-      create: EmailCodeRow,
-      update: Omit<EmailCodeRow, 'email'>
-    }) => Promise<EmailCodeRow>
   }
 }
 
@@ -137,16 +122,10 @@ export function cowpatify<R extends UserRequired, T extends UserRow>(config: Con
     },
 
     // called from auth.invite
-    async registerUserFromInvitation({ name, code }: {
+    async registerUserFromInvitation({ name }: {
       name: string,
-      code: string,
     }) {
-      if (!code) throw json({ error: "Please enter a code" });
-      // email = punk.normalizeEmail(email)
-      // const entry = await config.emailCodes.findFirst({ where: { email, loginCode: code } })
-      // if (!entry) throw json({ error: "Invalid code" });
-      // if (entry.loginCodeExpiresAt < new Date()) throw json({ error: "Code expired" })
-      return await config.users.create({ data: { email: name } as R })
+      return await config.users.create({ data: { name } as R })
     },
 
     // called from auth.code
@@ -154,7 +133,7 @@ export function cowpatify<R extends UserRequired, T extends UserRow>(config: Con
       const redirectTo = await redirectCookie.parse(request.headers.get("Cookie") || "") || "/"
       const session = await punk.storage.getSession()
       session.set('userId', user.id)
-      session.set('email', user.email)
+      session.set('name', user.name)
       session.set("roles", [...user.role || []])
       return redirect(redirectTo, {
         headers: {

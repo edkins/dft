@@ -61,8 +61,7 @@ export default function InviteScreen() {
                 <Input
                   id="name"
                   placeholder="yourname"
-                  type="email"
-                  name="email"
+                  name="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   autoCapitalize="none"
@@ -84,14 +83,14 @@ export default function InviteScreen() {
         </div>
 
         <p className="text-center text-sm text-muted-foreground">
+          Hosted by <ExternalLink href="https://www.meetup.com/toronto-ai-aligners/">Toronto AI Safety Meetup</ExternalLink>
+        </p>
+        <p className="text-center text-sm text-muted-foreground">
           Built by the{" "}
           <ExternalLink href="https://meaningalignment.org">
             Institute for Meaning Alignment
           </ExternalLink>
           .
-        </p>
-        <p className="text-center text-sm text-muted-foreground">
-          Hosted by <ExternalLink href="https://www.meetup.com/toronto-ai-aligners/">Toronto AI Safety Meetup</ExternalLink>
         </p>
         <div
           className={`mt-6 w-full text-center transition-opacity duration-300 ease-in-out ${showError ? "opacity-100" : "opacity-0"

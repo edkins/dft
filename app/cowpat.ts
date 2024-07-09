@@ -1,7 +1,4 @@
 import { createCookieSessionStorage, json, redirect, createCookie } from "@remix-run/node";
-import Mailgun from "mailgun.js";
-import formData from "form-data";
-import validator from 'validator';
 import jwt from 'jsonwebtoken';
 
 const redirectCookie = createCookie('redirect', {
@@ -56,7 +53,6 @@ export type Config<R extends UserRequired, T extends UserRow> = {
       update: Omit<EmailCodeRow, 'email'>
     }) => Promise<EmailCodeRow>
   }
-  normalizeEmailOptions?: validator.NormalizeEmailOptions
 }
 
 export function cowpatify<R extends UserRequired, T extends UserRow>(config: Config<R, T>) {
@@ -120,68 +116,10 @@ export function cowpatify<R extends UserRequired, T extends UserRow>(config: Con
       return await config.users.findUnique({ where: { id: userId } })
     },
 
-    async mail({ to, from = config.loginFrom, subject, text }: { to: string, subject: string, text: string, from?: string }) {
-      const mailgun = new Mailgun(formData).client({
-        username: 'api',
-        key: env("MAILGUN_API_KEY"),
-        url: process.env["MAILGUN_URL"] || undefined,
-      })
-      await mailgun.messages.create(process.env["MAILGUN_DOMAIN"]!, {
-        from,
-        to,
-        subject,
-        text
-      });
-    },
-
-    async sendLoginCode(email: string, code: string) {
-      await this.mail({
-        to: email,
-        subject: "Your login code",
-        text: `Here's your login code for ${config.site}.\n\n   ${code}`
-      })
-    },
-
-    normalizeEmail(email: string): string {
-      return validator.normalizeEmail(email, config.normalizeEmailOptions) as string
-    },
-
-    async resendLoginCode(email: string) {
-      if (!email || !validator.isEmail(email)) throw new Error('Invalid email')
-      email = punk.normalizeEmail(email)
-      const entry = await config.emailCodes.findUnique({ where: { email } })
-      if (!entry) throw new Error('no code found')
-      this.sendLoginCode(email, entry.loginCode)
-      return json({ resent: true })
-    },
-
     async redirectCookieHeader(request: Request) {
       const url = new URL(request.url)
       const redirect = url.searchParams.get('redirect') || '/'
       return redirect ? { "Set-Cookie": await redirectCookie.serialize(redirect) } : undefined
-    },
-
-    // called from auth.login
-    async sendLoginCodeAndRedirect(email: string) {
-      // validate email
-      if (!email || !validator.isEmail(email)) return json({ error: 'Invalid email' })
-      email = punk.normalizeEmail(email)
-
-      // create login code
-      const loginCode = randomCode(6)
-      const loginCodeExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24)
-      await config.emailCodes.upsert({
-        where: { email },
-        create: { email, loginCode, loginCodeExpiresAt },
-        update: { loginCode, loginCodeExpiresAt }
-      })
-
-      // send login code & redirect
-      await punk.sendLoginCode(email, loginCode)
-      const user = await config.users.findUnique({ where: { email } })
-      const search = new URLSearchParams({ email })
-      if (!user) search.set('register', 'yes')
-      return redirect(`/auth/code?${search.toString()}`)
     },
 
     async redirectAsLoggedOut(request: Request) {
@@ -198,35 +136,17 @@ export function cowpatify<R extends UserRequired, T extends UserRow>(config: Con
       });
     },
 
-    // called from auth.code
-    async getUserForLoginCodeRequest({ email, code }: {
-      email: string,
+    // called from auth.invite
+    async registerUserFromInvitation({ name, code }: {
+      name: string,
       code: string,
     }) {
-      if (!email || !validator.isEmail(email)) throw new Error('Invalid email')
       if (!code) throw json({ error: "Please enter a code" });
-      email = punk.normalizeEmail(email)
-      const entry = await config.emailCodes.findFirst({ where: { email, loginCode: code } })
-      if (!entry) throw json({ error: "Invalid code" });
-      if (entry.loginCodeExpiresAt < new Date()) throw json({ error: "Code expired" });
-      const user = config.users.findUnique({ where: { email } })
-      if (!user) throw new Error("User not found")
-      return user
-    },
-
-    // called from auth.code
-    async registerUserFromLoginCodeRequest({ email, code, extraUserFields }: {
-      email: string,
-      code: string,
-      extraUserFields: Omit<R, "email">
-    }) {
-      if (!email || !validator.isEmail(email)) throw new Error('Invalid email')
-      if (!code) throw json({ error: "Please enter a code" });
-      email = punk.normalizeEmail(email)
-      const entry = await config.emailCodes.findFirst({ where: { email, loginCode: code } })
-      if (!entry) throw json({ error: "Invalid code" });
-      if (entry.loginCodeExpiresAt < new Date()) throw json({ error: "Code expired" })
-      return await config.users.create({ data: { email, ...extraUserFields } as R })
+      // email = punk.normalizeEmail(email)
+      // const entry = await config.emailCodes.findFirst({ where: { email, loginCode: code } })
+      // if (!entry) throw json({ error: "Invalid code" });
+      // if (entry.loginCodeExpiresAt < new Date()) throw json({ error: "Code expired" })
+      return await config.users.create({ data: { email: name } as R })
     },
 
     // called from auth.code

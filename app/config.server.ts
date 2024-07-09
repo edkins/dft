@@ -9,7 +9,7 @@ import dftGeneralConfig from "./values-tools/articulator-configs/dft-general"
 
 export const db = new PrismaClient()
 
-export const auth = cowpunkify({
+export const auth = cowpatify({
   site: "Democratic Fine-Tuning",
   loginFrom: "Democratic Fine-Tuning <info@meaningalignment.org>",
   users: db.user,

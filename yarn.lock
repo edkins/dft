@@ -2731,6 +2731,11 @@ acorn-walk@^8.0.2:
   resolved "https://registry.npmjs.org/acorn/-/acorn-8.11.3.tgz"
   integrity sha512-Y9rRfJG5jcKOE0CLisYbojUjIrIEE7AGMzA/Sm4BslANhbS+cDMpgBdcPT91oJ7OuJ9hYJBx59RjbhxVnrF8Xg==
 
+adm-zip@^0.5.10:
+  version "0.5.14"
+  resolved "https://registry.npmjs.org/adm-zip/-/adm-zip-0.5.14.tgz"
+  integrity sha512-DnyqqifT4Jrcvb8USYjp6FHtBpEIz1mnXu6pTRHZ0RL69LbQYiO+0lDFg5+OKA7U29oWSs3a/i8fhn8ZcceIWg==
+
 agent-base@^7.0.2:
   version "7.1.0"
   resolved "https://registry.npmjs.org/agent-base/-/agent-base-7.1.0.tgz"
@@ -5050,6 +5055,16 @@ inline-style-parser@0.1.1:
   resolved "https://registry.npmjs.org/inline-style-parser/-/inline-style-parser-0.1.1.tgz"
   integrity sha512-7NXolsK4CAS5+xvdj5OMMbI962hU/wvwoxk+LWR9Ek9bVtyuuYScDN6eS0rUm6TxApFpw7CX1o4uJzcd4AyD3Q==
 
+inngest-cli@^0.29.3:
+  version "0.29.3"
+  resolved "https://registry.npmjs.org/inngest-cli/-/inngest-cli-0.29.3.tgz"
+  integrity sha512-x6g/2f9UJkDLi1mz/b4VxKO2J3yH7oMLLbNDOvrTIj7S4GC+0VbrzMZra1GV2nS5nKHrHEoHCoLCujGklNalaQ==
+  dependencies:
+    adm-zip "^0.5.10"
+    debug "^4.3.4"
+    node-fetch "2.6.7"
+    tar "6.2.1"
+
 inngest@^2.5.0:
   version "2.5.0"
   resolved "https://registry.npmjs.org/inngest/-/inngest-2.5.0.tgz"
@@ -6995,6 +7010,13 @@ node-fetch@^2.6.12, node-fetch@^2.6.9:
   dependencies:
     whatwg-url "^5.0.0"
 
+node-fetch@2.6.7:
+  version "2.6.7"
+  resolved "https://registry.npmjs.org/node-fetch/-/node-fetch-2.6.7.tgz"
+  integrity sha512-ZjMPFEfVx5j+y2yF35Kzx5sF7kDzxuDj6ziH4FFbOp87zKDZNx8yExJIb05OGF4Nlt9IHFIMBkRl41VdvcNdbQ==
+  dependencies:
+    whatwg-url "^5.0.0"
+
 node-int64@^0.4.0:
   version "0.4.0"
   resolved "https://registry.npmjs.org/node-int64/-/node-int64-0.4.0.tgz"
@@ -8561,10 +8583,10 @@ tar-stream@^2.1.4:
     inherits "^2.0.3"
     readable-stream "^3.1.1"
 
-tar@^6.0.2:
-  version "6.2.0"
-  resolved "https://registry.npmjs.org/tar/-/tar-6.2.0.tgz"
-  integrity sha512-/Wo7DcT0u5HUV486xg675HtjNd3BXZ6xDbzsCUZPt5iw8bTQ63bP0Raut3mvro9u+CUyq7YQd8Cx55fsZXxqLQ==
+tar@^6.0.2, tar@6.2.1:
+  version "6.2.1"
+  resolved "https://registry.npmjs.org/tar/-/tar-6.2.1.tgz"
+  integrity sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A==
   dependencies:
     chownr "^2.0.0"
     fs-minipass "^2.0.0"

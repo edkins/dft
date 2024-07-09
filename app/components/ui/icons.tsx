@@ -86,6 +86,24 @@ function IconNextChat({
   )
 }
 
+function IconAssistant({ className, ...props }: React.ComponentProps<"svg">) {
+  return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" className={cn("h-4 w-4", className)} {...props}>
+    <rect x="50" y="70" width="100" height="100" rx="10" fill="#8a2be2" />
+    <circle cx="100" cy="50" r="30" fill="#9932cc" />
+    <circle cx="85" cy="45" r="10" fill="white" />
+    <circle cx="115" cy="45" r="10" fill="white" />
+    <circle cx="85" cy="45" r="5" fill="black" />
+    <circle cx="115" cy="45" r="5" fill="black" />
+    <path d="M80 60 Q100 70 120 60" stroke="white" strokeWidth="3" fill="none" />
+    <rect x="30" y="80" width="20" height="60" rx="10" fill="#9932cc" />
+    <rect x="150" y="80" width="20" height="60" rx="10" fill="#9932cc" />
+    <rect x="60" y="170" width="20" height="30" rx="5" fill="#9932cc" />
+    <rect x="120" y="170" width="20" height="30" rx="5" fill="#9932cc" />
+    <line x1="100" y1="20" x2="100" y2="5" stroke="#9932cc" strokeWidth="3" />
+    <circle cx="100" cy="5" r="5" fill="#ff69b4" />
+  </svg>
+}
+
 function IconOpenAI({ className, ...props }: React.ComponentProps<"svg">) {
   return (
     <svg
@@ -491,7 +509,7 @@ function IconChevronUpDown({
 export {
   IconEdit,
   IconNextChat,
-  IconOpenAI,
+  IconAssistant,
   IconVercel,
   IconGitHub,
   IconSeparator,

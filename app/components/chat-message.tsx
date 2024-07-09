@@ -4,7 +4,7 @@ import remarkMath from "remark-math"
 import { cn } from "../utils"
 import { CodeBlock } from "./ui/codeblock"
 import { MemoizedReactMarkdown } from "./markdown"
-import { IconOpenAI, IconUser } from "./ui/icons"
+import { IconAssistant, IconUser } from "./ui/icons"
 import { ChatMessageActions } from "./chat-message-actions"
 
 export interface ChatMessageProps {
@@ -82,7 +82,7 @@ export function ChatMessage({
             : "bg-primary text-primary-foreground"
         )}
       >
-        {message.role === "user" ? <IconUser /> : <IconOpenAI />}
+        {message.role === "user" ? <IconUser /> : <IconAssistant />}
       </div>
       <div className="ml-4 flex-1 space-y-2 overflow-hidden px-1">
         <MessageContent message={message} />

@@ -1,5 +1,5 @@
 import { cn } from "~/utils"
-import { IconOpenAI } from "./ui/icons"
+import { IconAssistant } from "./ui/icons"
 import { Loader2 } from "lucide-react"
 import { useContext, useEffect, useState } from "react"
 import { ChatContext } from "~/context/case"
@@ -35,7 +35,7 @@ export default function ChatMessageLoading() {
           "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow bg-primary text-primary-foreground"
         )}
       >
-        <IconOpenAI />
+        <IconAssistant />
       </div>
       <div className="ml-4 flex-1 space-y-2 overflow-hidden px-1">
         <div className="flex flex-row align-center">

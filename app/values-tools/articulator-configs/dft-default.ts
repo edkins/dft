@@ -1,6 +1,7 @@
 import { ArticulatorConfig } from "../articulator-config"
 import { definitionOfASourceOfMeaning } from "../prompt-segments"
-import { chatModel } from "~/config.server"
+
+const chatModel = process.env.OPENAI_MODEL ?? "gpt-4o";
 
 const exampleCards = `{
   "evaluation_criteria":[

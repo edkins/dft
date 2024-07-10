@@ -1,6 +1,7 @@
 import type { ArticulatorConfig } from "~/values-tools/articulator-config"
 import { attentionPoliciesCriteria, definitionOfASourceOfMeaning, embodiedJustice, exampleCards, faithInPeople } from "../prompt-segments"
-import { chatModel } from "~/config.server"
+
+const chatModel = process.env.OPENAI_MODEL ?? "gpt-4o";
 
 const mainPrompt = `You are a meaning assistant, helping a user understand what their underlying "sources of meaning" are.
 

@@ -4,6 +4,7 @@ import { Inngest } from "inngest"
 import { Configuration, OpenAIApi } from "openai-edge"
 import { DialogueEvaluatorConfig } from "./values-tools/dialogue-evaluator"
 import { ArticulatorConfig } from "./values-tools/articulator-config"
+
 import dftDefaultConfig from "./values-tools/articulator-configs/dft-default"
 import dftGeneralConfig from "./values-tools/articulator-configs/dft-general"
 
@@ -52,4 +53,4 @@ export const articulatorConfigs: { [key: string]: ArticulatorConfig } = {
   general: dftGeneralConfig,
 }
 
-export const chatModel = process.env.OPENAI_MODEL ?? "gpt-4o";
+export const chatModel:string = process.env.OPENAI_MODEL ?? "gpt-4o";

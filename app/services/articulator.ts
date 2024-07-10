@@ -1,5 +1,6 @@
+import { OpenAI } from "openai"
+import { ChatCompletionChunk, ChatCompletionMessage } from "openai/resources"
 import { Chat, PrismaClient, ValuesCard } from "@prisma/client"
-import { ChatCompletionRequestMessage, OpenAIApi } from "openai-edge/types/api"
 import {
   ArticulatorConfig,
   metadata,
@@ -10,7 +11,7 @@ import { capitalize, isDisplayableMessage, toDataModel } from "~/utils"
 import { embeddingService as embeddings } from "../values-tools/embedding"
 import DeduplicationService from "./deduplication"
 import { articulatorConfigs } from "~/config.server"
-import { OpenAIStream, StreamingTextResponse } from "~/lib/openai-stream"
+import { Stream } from "openai/streaming"
 
 // import { OpenAIStream, StreamingTextResponse } from "ai"   //TODO replace the above import with this once https://github.com/vercel-labs/ai/issues/199 is fixed.
 
@@ -26,12 +27,12 @@ type FunctionResult = {
 }
 
 export function normalizeMessage(
-  message: ChatCompletionRequestMessage
-): ChatCompletionRequestMessage {
-  // only role, content, name, function_call
-  const { role, content, name, function_call } = message
-  if (function_call && !function_call.arguments) function_call.arguments = "{}"
-  return { role, content, name, function_call }
+  message: ChatCompletionMessage
+): ChatCompletionMessage {
+  // only role, content, name, tool_calls
+  const { role, content, tool_calls } = message
+  //if (function_call && !function_call.arguments) function_call.arguments = "{}"
+  return { role, content, tool_calls }
 }
 
 /**
@@ -39,14 +40,14 @@ export function normalizeMessage(
  */
 export class ArticulatorService {
   private deduplication: DeduplicationService
-  private openai: OpenAIApi
+  private openai: OpenAI
   private db: PrismaClient
   public config: ArticulatorConfig
 
   constructor(
     configKey: string,
     deduplication: DeduplicationService,
-    openai: OpenAIApi,
+    openai: OpenAI,
     db: PrismaClient
   ) {
     this.config = articulatorConfigs[configKey]
@@ -67,8 +68,8 @@ export class ArticulatorService {
     data,
   }: {
     chatId: string
-    messages: ChatCompletionRequestMessage[]
-    message: ChatCompletionRequestMessage
+    messages: ChatCompletionMessage[]
+    message: ChatCompletionMessage
     data?: {
       provisionalCard?: ValuesCardData
       provisionalCanonicalCardId?: number | null
@@ -79,7 +80,7 @@ export class ArticulatorService {
       where: { id: chatId },
     })
     const transcript = (chat?.transcript ??
-      []) as any as ChatCompletionRequestMessage[]
+      []) as any as ChatCompletionMessage[]
     transcript.push(message)
     await this.db.chat.update({
       where: { id: chatId },
@@ -98,7 +99,7 @@ export class ArticulatorService {
     caseId,
   }: {
     userId: number
-    messages: ChatCompletionRequestMessage[]
+    messages: ChatCompletionMessage[]
     function_call: { name: string } | null
     chatId: string
     caseId: string
@@ -108,7 +109,7 @@ export class ArticulatorService {
     const chat = await this.db.chat.findUnique({ where: { id: chatId } })
     if (chat) {
       const transcript = (chat?.transcript ??
-        []) as any as ChatCompletionRequestMessage[]
+        []) as any as ChatCompletionMessage[]
       const lastMessage = messages[messages.length - 1]
       transcript.push(lastMessage)
       messages = transcript.map((o) => normalizeMessage(o))
@@ -146,7 +147,7 @@ export class ArticulatorService {
       functions = functions.filter((f) => f.name !== "submit_values_card")
     }
 
-    const completionResponse = await this.openai.createChatCompletion({
+    const completionResponse = await this.openai.chat.completions.create({
       model: this.config.model,
       messages: messages,
       temperature: 0.7,
@@ -155,11 +156,11 @@ export class ArticulatorService {
       function_call: function_call ?? "auto",
     })
 
-    if (!completionResponse.ok) return { completionResponse }
+    const [response0, response1] = completionResponse.tee();
 
     // Get any function call that is present in the stream.
-    const functionCall = await this.getFunctionCall(completionResponse)
-    if (!functionCall) return { completionResponse }
+    const functionCall = await this.getFunctionCall(response0)
+    if (!functionCall) return { response1 }
 
     // If a function call is present in the stream, handle it...
     await this.addServerSideMessage({
@@ -186,7 +187,7 @@ export class ArticulatorService {
       response,
       articulatedCard,
       submittedCard,
-      completionResponse,
+      completionResponse: response1,
     }
   }
 
@@ -199,18 +200,11 @@ export class ArticulatorService {
   // Otherwise, return the stream as-is.
   //
   async getFunctionCall(
-    res: Response
+    stream: Stream<ChatCompletionChunk>
   ): Promise<{ name: string; arguments: object } | null> {
-    const stream = OpenAIStream(res.clone()) // .clone() since we don't want to consume the response.
-    const reader = stream.getReader()
-
-    //
-    // In the case of a function call, the first token in the stream
-    // is an unfinished JSON object, with "function_call" as the first key.
-    //
-    // We can use that key to check if the response is a function call.
-    //
-    const { value: first } = await reader.read()
+    for await (const obj of stream) {
+      if (obj.choices[0].delta.tool_calls)
+    }
 
     const isFunctionCall = first
       ?.replace(/[^a-zA-Z0-9_]/g, "")
@@ -480,7 +474,7 @@ export class ArticulatorService {
 
   /** Create a values card from a transcript of the conversation. */
   async articulateValuesCard(
-    messages: ChatCompletionRequestMessage[],
+    messages: ChatCompletionMessage[],
     previousCard: ValuesCardData | null
   ): Promise<ArticulateCardResponse> {
     console.log("Articulating values card...")
@@ -504,10 +498,10 @@ export class ArticulatorService {
 
     console.log("Calling articulation prompt...")
 
-    let res: Response
+    let data = undefined;
 
     try {
-      res = await this.openai.createChatCompletion({
+      data = await this.openai.chat.completions.create({
         model: this.config.model,
         messages: [
           {
@@ -516,8 +510,8 @@ export class ArticulatorService {
           },
           { role: "user", content: transcript },
         ],
-        functions: this.config.prompts.show_values_card.functions,
-        function_call: { name: "format_card" },
+        tools: this.config.prompts.show_values_card.functions.map(f => ({type:'function',function:f})),
+        tool_choice: {type: 'function', function: { name: "format_card" }},
         temperature: 0.0,
         stream: false,
       })
@@ -527,12 +521,10 @@ export class ArticulatorService {
       throw e
     }
 
-    const data = await res.json()
-
     console.log("Got response from articulation prompt, parsing...")
 
     const response = JSON.parse(
-      data.choices[0].message.function_call.arguments
+      data.choices[0].message.tool_calls![0].function.arguments
     ) as ArticulateCardResponse
 
     console.log(

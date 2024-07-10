@@ -1,9 +1,9 @@
 import { DeduplicatedCard, ValuesCard } from "@prisma/client"
 import { embeddingService as embeddings } from "./embedding"
-import { ChatCompletionFunctions } from "openai-edge"
 import { db, inngest, openai, chatModel } from "~/config.server"
 import { attentionPoliciesCriteria } from "./prompt-segments"
 import { DBSCAN } from 'density-clustering'
+import { FunctionDefinition } from "openai/resources"
 
 export const generation = 3
 const model = chatModel
@@ -34,7 +34,7 @@ ${attentionPoliciesCriteria}`
 // Functions.
 //
 
-const bestCardFunction: ChatCompletionFunctions = {
+const bestCardFunction: FunctionDefinition = {
   name: "best_card",
   description:
     "Return the best formulated values card from a list of values cards.",
@@ -51,7 +51,7 @@ const bestCardFunction: ChatCompletionFunctions = {
   },
 }
 
-const dedupeFunction: ChatCompletionFunctions = {
+const dedupeFunction: FunctionDefinition = {
   name: "dedupe",
   description:
     "Return the id of the canonical values card that is a duplicate value ",
@@ -67,7 +67,7 @@ const dedupeFunction: ChatCompletionFunctions = {
   },
 }
 
-const clusterFunction: ChatCompletionFunctions = {
+const clusterFunction: FunctionDefinition = {
   name: "cluster",
   description:
     "Return a list of clusters, where each cluster is a list of values card ids that all are about the same value.",
@@ -184,19 +184,23 @@ export default class DeduplicationService {
 
     const message = toDataModelArrayWithIdJSON(cards)
 
-    const response = await openai.createChatCompletion({
+    const data = await openai.chat.completions.create({
       model,
       messages: [
         { role: "system", content: bestValuesCardPrompt },
         { role: "user", content: message },
       ],
-      functions: [bestCardFunction],
-      function_call: { name: bestCardFunction.name },
+      tools: [
+        {
+          type: 'function',
+          function: bestCardFunction
+        },
+      ],
+      tool_choice: {type: 'function', function:{name: bestCardFunction.name}},
       temperature: 0.0,
     })
-    const data = await response.json()
     const id: number = JSON.parse(
-      data.choices[0].message.function_call.arguments
+      data.choices[0].message.tool_calls![0].function.arguments
     ).best_values_card_id
 
     const card = cards.find((c) => c.id === id)!
@@ -260,19 +264,18 @@ export default class DeduplicationService {
 
     console.log("Calling prompt for deduplication.")
 
-    const response = await openai.createChatCompletion({
+    const data = await openai.chat.completions.create({
       model,
       messages: [
         { role: "system", content: dedupePrompt },
         { role: "user", content: message },
       ],
-      functions: [dedupeFunction],
-      function_call: { name: dedupeFunction.name },
+      tools: [{type: 'function', function: dedupeFunction}],
+      tool_choice: { type: 'function', function: {name: dedupeFunction.name }},
       temperature: 0.0,
     })
-    const data = await response.json()
     const matchingId: number | null | undefined = JSON.parse(
-      data.choices[0].message.function_call.arguments
+      data.choices[0].message.tool_calls![0].function.arguments
     ).canonical_card_id
 
     console.log(`Got response from prompt, deduplicated: ${matchingId}`)

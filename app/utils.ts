@@ -116,7 +116,7 @@ export function removeLast<T>(
 
 export function isDisplayableMessage(message: {
   role: string
-  content?: string
+  content: string | null
 }) {
   return (
     message?.content &&

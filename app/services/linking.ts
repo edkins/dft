@@ -5,13 +5,13 @@ import {
   Vote,
 } from "@prisma/client"
 import { db, inngest, isChatGpt, chatModel } from "~/config.server"
-import { Configuration, OpenAIApi } from "openai-edge"
 import { embeddingService as embeddings } from "../values-tools/embedding"
+import OpenAI from "openai"
 
-const configuration = new Configuration({
+const configuration = {
   apiKey: process.env.OPENAI_API_KEY,
-})
-const openai = new OpenAIApi(configuration)
+}
+const openai = new OpenAI(configuration)
 
 type EdgeHypothesisData = {
   to: CanonicalValuesCard
@@ -145,18 +145,17 @@ async function clusterCanonicalCards(contexts: string[]) {
     2
   )
 
-  const res = await openai.createChatCompletion({
+  const data = await openai.chat.completions.create({
     model: chatModel,
     temperature: 0.0,
     messages: [
       { role: "system", content: clusterPrompt(contexts) },
       { role: "user", content: cardDataAsJson },
     ],
-    function_call: { name: "cluster" },
-    functions: [clusterFunction],
+    tool_choice: {type: 'function', function: { name: "cluster" }},
+    tools: [{type: 'function', function: clusterFunction}],
   })
-  const data = await res.json()
-  return JSON.parse(data.choices[0].message.function_call.arguments) as {
+  return JSON.parse(data.choices[0].message.tool_calls![0].function.arguments) as {
     annotatedValues: { id: number; condition: string }[]
     clusters: Cluster[]
   }
@@ -242,18 +241,17 @@ export async function generateTransitions(cardIds: number[]): Promise<{
     2
   )
 
-  const res = await openai.createChatCompletion({
+  const data = await openai.chat.completions.create({
     model: chatModel,
     temperature: 0.3,
     messages: [
       { role: "system", content: transitionsPrompt },
       { role: "user", content: cardDataAsJson },
     ],
-    function_call: { name: "transitions" },
-    functions: [transitionsFunction],
+    tool_choice: {type: 'function', function: { name: "transitions" }},
+    tools: [{type: 'function', function: transitionsFunction}],
   })
-  const data = await res.json()
-  return JSON.parse(data.choices[0].message.function_call.arguments) as {
+  return JSON.parse(data.choices[0].message.tool_calls![0].function.arguments) as {
     transitions: Transition[]
   }
 }

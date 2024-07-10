@@ -1,7 +1,7 @@
 import { PrismaClient, Prisma } from "@prisma/client"
 import { cowpatify } from "./cowpat"
 import { Inngest } from "inngest"
-import { Configuration, OpenAIApi } from "openai-edge"
+import { OpenAI } from "openai"
 import { DialogueEvaluatorConfig } from "./values-tools/dialogue-evaluator"
 import { ArticulatorConfig } from "./values-tools/articulator-config"
 
@@ -22,10 +22,9 @@ export const inngest = new Inngest({
   eventKey: process.env.INNGEST_EVENT_KEY,
 })
 
-export const openai = new OpenAIApi(
-  new Configuration({
+export const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-  })
+  }
 )
 
 export const isChatGpt = process.env.VALUE_STYLE !== "personal"

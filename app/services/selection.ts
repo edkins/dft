@@ -1,8 +1,9 @@
 import { CanonicalValuesCard, PrismaClient, ValuesCard } from "@prisma/client"
 import { db, chatModel } from "../config.server"
-import { ChatCompletionFunctions, OpenAIApi } from "openai-edge"
 import { v4 as uuid } from "uuid"
 import { embeddingService as embedding } from "../values-tools/embedding"
+import { FunctionDefinition } from "openai/resources"
+import OpenAI from "openai"
 
 export type Draw = {
   id: string
@@ -19,7 +20,7 @@ ${valuesString}
 ### Output
 You always return a list of 6 numbers. Each number is the id of a values card the user is likely to consider as wise.`
 
-const submitWiseValues: ChatCompletionFunctions = {
+const submitWiseValues: FunctionDefinition = {
   name: "submit_wise_values",
   description:
     "Submit 6 ids to values that the user is likely to think are wise.",
@@ -42,9 +43,9 @@ const submitWiseValues: ChatCompletionFunctions = {
 
 export default class SelectionService {
   private db: PrismaClient
-  private openai: OpenAIApi
+  private openai: OpenAI
 
-  constructor(openai: OpenAIApi, db: PrismaClient) {
+  constructor(openai: OpenAI, db: PrismaClient) {
     this.openai = openai
     this.db = db
   }
@@ -185,18 +186,17 @@ export default class SelectionService {
     const message = `For a user that has this value:\n\n${userValueString}\n\nWhich 6 of the provided values is he or she most likely to think is also wise to consider?`
 
     // Call prompt.
-    const response = await this.openai.createChatCompletion({
+    const data = await this.openai.chat.completions.create({
       model: chatModel,
       messages: [
         { role: "system", content: system },
         { role: "user", content: message },
       ],
-      function_call: { name: submitWiseValues.name },
-      functions: [submitWiseValues],
+      tool_choice: {type: 'function', function: { name: submitWiseValues.name }},
+      tools: [{type: 'function', function: submitWiseValues}],
     })
-    const data = await response.json()
     const ids = JSON.parse(
-      data.choices[0].message.function_call.arguments
+      data.choices[0].message.tool_calls![0].function.arguments
     ).six_best_values
 
     return candidates.filter((c) => ids.includes(c.id))

@@ -1,4 +1,4 @@
-import { ChatCompletionFunctions } from "openai-edge"
+import { FunctionDefinition } from "openai/resources"
 import { db, inngest, openai, chatModel } from "~/config.server"
 import { ValuesCardData } from "~/lib/consts"
 import {
@@ -33,7 +33,7 @@ When integrating into a new community
 When welcoming someone into a new community
 When considering the needs of others`
 
-const generateContextsFunction: ChatCompletionFunctions = {
+const generateContextsFunction: FunctionDefinition = {
   name: "generate_contexts",
   description:
     "Generate a list of at least 6 context strings, each depicting a scenario for when one of the values cards could be relevant.",
@@ -56,24 +56,23 @@ const generateContextsFunction: ChatCompletionFunctions = {
 async function generateContexts(
   valuesCards: ValuesCardData[]
 ): Promise<string[]> {
-  const response = await openai.createChatCompletion({
+  const data = await openai.chat.completions.create({
     model: chatModel,
     messages: [
       { role: "system", content: generateContextsPrompt },
       { role: "user", content: JSON.stringify(valuesCards) },
     ],
-    function_call: { name: generateContextsFunction.name },
-    functions: [generateContextsFunction],
+    tool_choice: {type: 'function', function: { name: generateContextsFunction.name }},
+    tools: [{type: 'function', function: generateContextsFunction}],
     temperature: 0.0,
   })
-  const data = await response.json()
-  const contexts = JSON.parse(data.choices[0].message.function_call.arguments)
+  const contexts = JSON.parse(data.choices[0].message.tool_calls![0].function.arguments)
     .contexts as string[]
 
   return contexts
 }
 
-const generateCardsFunction: ChatCompletionFunctions = {
+const generateCardsFunction: FunctionDefinition = {
   name: "generate_values_cards",
   description:
     "Generate 6 values cards for the situation at hand, that all perfectly meet the criteria.",
@@ -138,19 +137,18 @@ ${cardCritiques}`
 async function generateValuesCards(
   question: string
 ): Promise<ValuesCardData[]> {
-  const response = await openai.createChatCompletion({
+  const data = await openai.chat.completions.create({
     model: chatModel,
     messages: [
       { role: "system", content: generateCardPrompt },
       { role: "user", content: question },
     ],
-    function_call: { name: generateCardsFunction.name },
-    functions: [generateCardsFunction],
+    tool_choice: { type: 'function', function: { name: generateCardsFunction.name }},
+    tools: [{type: 'function', function: generateCardsFunction}],
     temperature: 0.2,
   })
-  const data = await response.json()
   const valuesCards = JSON.parse(
-    data.choices[0].message.function_call.arguments
+    data.choices[0].message.tool_calls![0].function.arguments
   ).values_cards as ValuesCardData[]
 
   console.log("valuesCards", valuesCards)

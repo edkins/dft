@@ -219,6 +219,7 @@ export class ArticulatorService {
         let function_name = undefined;
         let args = '';
         let first = true;
+        let resume_stream = null;
         for await (const chunk of stream) {
           let articulatedCard = null;
           let submittedCard = null;
@@ -254,7 +255,9 @@ export class ArticulatorService {
                 messages,
                 chatId,
                 call_id!,
+                first,
               );
+              resume_stream = results.response;
               articulatedCard = results.articulatedCard;
               submittedCard = results.submittedCard;
             }
@@ -277,7 +280,14 @@ export class ArticulatorService {
         }
         if (first) {
           console.log("Warning: emitting empty stream");
-          yield {chunk_content: content, articulatedCard: null, submittedCard: null};
+          yield {chunk_content: '', articulatedCard: null, submittedCard: null};
+        }
+
+        if (resume_stream !== null) {
+          for await (const chunk of resume_stream) {
+            const chunk_content = chunk.choices[0].delta.content ?? '';
+            yield {chunk_content, articulatedCard: null, submittedCard: null};
+          }
         }
       }
       return new Stream(iterator, stream.controller);
@@ -460,7 +470,9 @@ export class ArticulatorService {
     messages: any[] = [],
     chatId: string,
     tool_call_id: string,
+    resume: boolean,
   ): Promise<{
+    response: Stream<ChatCompletionChunk> | null
     articulatedCard: ValuesCardData | null
     submittedCard: ValuesCardData | null
   }> {
@@ -502,24 +514,31 @@ export class ArticulatorService {
       }
     }
 
-    if (functionResult.message === null || functionResult.message === undefined) {
-      return {
-        articulatedCard: functionResult.articulatedCard,
-        submittedCard: functionResult.submittedCard,
-      };
+    if (functionResult.message !== null && functionResult.message !== undefined) {
+      console.log(`Result from "${func.name}":\n${functionResult.message}`)
+
+      await this.addServerSideMessage({
+        chatId,
+        messages,
+        message: {
+          role: "tool",
+          tool_call_id,
+          content: functionResult.message,
+        },
+      })
     }
-    console.log(`Result from "${func.name}":\n${functionResult.message}`)
 
-    await this.addServerSideMessage({
-      chatId,
-      messages,
-      message: {
-        role: "tool",
-        tool_call_id,
-        content: functionResult.message,
-      },
-    })
-
+    let response = null;
+    if (resume) {
+      response = await this.openai.chat.completions.create({
+        model: this.config.model,
+        messages,
+        temperature: 0.0,
+        tools: this.config.prompts.main.functions.map((f) => ({type:'function',function:f})),
+        tool_choice: "none", // Prevent recursion.
+        stream: true,
+      })
+    }
     //
     // Call the OpenAI API with the function result.
     //
@@ -530,17 +549,10 @@ export class ArticulatorService {
     // console.log(`Calling OpenAI API with function result...`)
     // console.log(`Messages:\n${JSON.stringify(messages)}`)
 
-    // const response = await this.openai.chat.completions.create({
-    //   model: this.config.model,
-    //   messages,
-    //   temperature: 0.0,
-    //   functions: this.config.prompts.main.functions,
-    //   function_call: "none", // Prevent recursion.
-    //   stream: true,
-    // })
 
     // return { response, ...functionResult }
     return {
+      response,
       articulatedCard: functionResult.articulatedCard,
       submittedCard: functionResult.submittedCard,
     };

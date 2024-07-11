@@ -140,6 +140,11 @@ export default function AdminChat() {
   let { articulatorPromptHash, articulatorPromptVersion, gitCommitHash } = chat
   articulatorPromptHash = articulatorPromptHash.slice(0, 8)
   if (evaluation) delete evaluation["metadata"]
+
+  function click_trim() {
+    fetch(`/api/messages/${chatId}/trim`, {method:'POST'});
+  }
+
   return (
     <>
       <div className="border bg-slate-200 rounded-md shadow-sm px-4 py-2 mb-6 max-w-sm mx-auto">
@@ -173,6 +178,7 @@ export default function AdminChat() {
         valueCards={[]}
         onManualSubmit={() => { }}
       />
+      <Button onClick={click_trim}>Trim</Button>
     </>
   )
 }

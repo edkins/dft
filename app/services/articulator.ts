@@ -321,6 +321,7 @@ export class ArticulatorService {
 
   private async handleArticulateCardFunction(
     chatId: string,
+    tool_call_id: string,
     messages: ChatCompletionMessage[]
   ): Promise<FunctionResult> {
     console.log("Articulating card for chat " + chatId)
@@ -361,8 +362,8 @@ export class ArticulatorService {
         chatId,
         messages,
         message: {
-          role: "function",
-          name: "show_values_card",
+          role: "tool",
+          tool_call_id,
           content: JSON.stringify(newCard),
         },
         data: { provisionalCard: newCard! },
@@ -403,8 +404,8 @@ export class ArticulatorService {
       chatId,
       messages,
       message: {
-        role: "function",
-        name: "show_values_card",
+        role: "tool",
+        tool_call_id,
         content: JSON.stringify(newCard),
       },
       data: {
@@ -467,8 +468,10 @@ export class ArticulatorService {
         console.log("Calling show_values_card...")
         functionResult = await this.handleArticulateCardFunction(
           chatId,
+          tool_call_id,
           messages
         )
+        functionResult.message = null; // already added server side message
         break
       }
       case "submit_values_card": {
@@ -481,8 +484,8 @@ export class ArticulatorService {
       }
     }
 
-    if (functionResult.message === undefined) {
-      throw new Error("Function result message is undefined.")
+    if (functionResult.message === null || functionResult.message === undefined) {
+      return;
     }
     console.log(`Result from "${func.name}":\n${functionResult.message}`)
 

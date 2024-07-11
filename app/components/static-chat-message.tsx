@@ -33,7 +33,7 @@ export default function StaticChatMessage({
       i += 1
 
       if (i < wordArray.length) {
-        setTimeout(addNextWord, 50)
+        setTimeout(addNextWord, 20)
       } else {
         onFinished()
       }

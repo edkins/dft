@@ -7,11 +7,11 @@ import ValuesCard from "~/components/values-card"
 import { useEffect, useState } from "react"
 import { CanonicalValuesCard } from "@prisma/client"
 import SelectionService from "~/services/selection"
-import { Configuration, OpenAIApi } from "openai-edge"
 import { Check, Loader2 } from "lucide-react"
 import StaticChatMessage from "~/components/static-chat-message"
 import { cn } from "~/utils"
 import va from "@vercel/analytics"
+import OpenAI from "openai"
 
 const minRequiredVotes = 2
 
@@ -20,13 +20,13 @@ export async function loader({ request, params }: LoaderArgs) {
   const caseId = params.caseId!
 
   // Set up service.
-  const openai = new OpenAIApi(
-    new Configuration({ apiKey: process.env.OPENAI_API_KEY })
+  const openai = new OpenAI(
+    { apiKey: process.env.OPENAI_API_KEY }
   )
   const routing = new SelectionService(openai, db)
 
   // Get the draw for this user.
-  const { id, values } = await routing.getDraw(userId, caseId)
+  const { id, values } = await routing.getDraw(userId!, caseId)
 
   return json({ values, drawId: id })
 }

@@ -1,8 +1,10 @@
 import { auth, db, openai } from "~/config.server"
-import { ActionArgs, ActionFunction } from "@remix-run/node"
+import { ActionArgs, ActionFunction, Response } from "@remix-run/node"
 import { ValuesCardData } from "~/lib/consts"
 import { ArticulatorService } from "~/services/articulator"
 import DeduplicationService from "~/services/deduplication"
+import { Stream } from "openai/streaming"
+import { ChatCompletionChunk } from "openai/resources"
 // import { OpenAIStream, StreamingTextResponse } from "ai"
 
 const deduplication = new DeduplicationService(openai, db)
@@ -53,20 +55,55 @@ export const action: ActionFunction = async ({
       caseId,
     })
 
-  if (!completionResponse.ok) {
-    const body = await completionResponse.json()
-    throw body.error
-  }
-
   if (etc.functionCall) {
     // If a function call is present in the stream, handle it...
-    return new StreamingTextResponse(OpenAIStream(etc.response), {
-      headers: await createHeaders(etc.articulatedCard, etc.submittedCard),
-    })
+    return streaming_text_response(
+      etc.response,
+      await createHeaders(etc.articulatedCard, etc.submittedCard),
+    )
   } else {
     // ...otherwise, return the response.
-    return new StreamingTextResponse(OpenAIStream(completionResponse), {
-      headers: await createHeaders(),
-    })
+    return streaming_text_response(
+      completionResponse!,
+      await createHeaders(),
+    )
   }
+}
+
+function streaming_text_response(stream: Stream<ChatCompletionChunk>, headers: { [key: string]: string }) {
+  return new Response(to_readable_stream_text_only(stream), {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      ...headers,
+    },
+  })
+}
+
+function to_readable_stream_text_only(stream: Stream<ChatCompletionChunk>): ReadableStream {
+  let iter: AsyncIterator<ChatCompletionChunk>;
+  const encoder = new TextEncoder();
+
+  return new ReadableStream({
+    async start() {
+      console.log("Starting stream");
+      console.log(stream[Symbol.asyncIterator]);
+      iter = stream[Symbol.asyncIterator]();
+    },
+    async pull(ctrl: any) {
+      try {
+        const { value, done } = await iter.next();
+        if (done) return ctrl.close();
+
+        if (value.choices[0].delta.content !== null && value.choices[0].delta.content !== undefined) {
+          const bytes = encoder.encode(value.choices[0].delta.content!);
+          ctrl.enqueue(bytes);
+        }
+      } catch (err) {
+        ctrl.error(err);
+      }
+    },
+    async cancel() {
+      await iter.return?.();
+    },
+  });
 }

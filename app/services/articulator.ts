@@ -30,9 +30,9 @@ export function normalizeMessage(
   message: ChatCompletionMessage
 ): ChatCompletionMessage {
   // only role, content, name, tool_calls
-  const { role, content, tool_calls } = message
+  const { role, content, tool_calls, tool_call_id } = message
   //if (function_call && !function_call.arguments) function_call.arguments = "{}"
-  return { role, content, tool_calls }
+  return { role, content, tool_calls, tool_call_id }
 }
 
 /**
@@ -81,6 +81,9 @@ export class ArticulatorService {
     })
     const transcript = (chat?.transcript ??
       []) as any as ChatCompletionMessage[]
+    console.log("I'm addServerSideMessage and I'm pushing a message to the transcript");
+    console.log(message);
+    //console.log(`The last message was ${transcript[transcript.length - 1].content}`);
     transcript.push(message)
     await this.db.chat.update({
       where: { id: chatId },
@@ -111,6 +114,9 @@ export class ArticulatorService {
       const transcript = (chat?.transcript ??
         []) as any as ChatCompletionMessage[]
       const lastMessage = messages[messages.length - 1]
+      console.log("I'm pushing a message to the transcript");
+      console.log(lastMessage);
+      console.log(`The last message was ${transcript[transcript.length - 1].content}`);
       transcript.push(lastMessage)
       messages = transcript.map((o) => normalizeMessage(o))
       await this.db.chat.update({
@@ -147,48 +153,106 @@ export class ArticulatorService {
       functions = functions.filter((f) => f.name !== "submit_values_card")
     }
 
-    const completionResponse = await this.openai.chat.completions.create({
+    const response = await this.openai.chat.completions.create({
       model: this.config.model,
       messages: messages,
       temperature: 0.7,
       stream: true,
-      functions,
-      function_call: function_call ?? "auto",
+      tools: functions.map((f) => ({type:'function',function:f})),
+      tool_choice: function_call ? {type:'function',function:function_call} : "auto",
     })
 
-    const [response0, response1] = completionResponse.tee();
+    const completionResponse = this.add_text_to_db_and_handle_functions(chatId, messages, response);
 
-    // Get any function call that is present in the stream.
-    const functionCall = await this.getFunctionCall(response0)
-    if (!functionCall) return { response1 }
+    return {completionResponse};
 
-    // If a function call is present in the stream, handle it...
-    await this.addServerSideMessage({
-      chatId,
-      messages,
-      message: {
-        role: "assistant",
-        content: null as any,
-        function_call: {
-          name: functionCall.name,
-          arguments: JSON.stringify(functionCall.arguments),
-        },
-      },
-    })
+    // const [response0, response1] = completionResponse.tee();
 
-    const { response, articulatedCard, submittedCard } = await this.handle(
-      functionCall,
-      messages,
-      chatId,
-      caseId
-    )
-    return {
-      functionCall,
-      response,
-      articulatedCard,
-      submittedCard,
-      completionResponse: response1,
-    }
+    // // Get any function call that is present in the stream.
+    // const functionCall = await this.getFunctionCall(response0)
+    // if (!functionCall) return { completionResponse: response1 }
+
+    // // If a function call is present in the stream, handle it...
+    // await this.addServerSideMessage({
+    //   chatId,
+    //   messages,
+    //   message: {
+    //     role: "assistant",
+    //     content: null as any,
+    //     function_call: {
+    //       name: functionCall.name,
+    //       arguments: JSON.stringify(functionCall.arguments),
+    //     },
+    //   },
+    // })
+
+    // const { response, articulatedCard, submittedCard } = await this.handle(
+    //   functionCall,
+    //   messages,
+    //   chatId,
+    //   caseId
+    // )
+    // return {
+    //   functionCall,
+    //   response,
+    //   articulatedCard,
+    //   submittedCard,
+    //   completionResponse: response1,
+    // }
+  }
+
+  add_text_to_db_and_handle_functions(
+      chatId: string,
+      messages: any,
+      stream: Stream<ChatCompletionChunk>
+    ): Stream<ChatCompletionChunk> {
+      const parent = this;
+      async function* iterator(): AsyncIterator<ChatCompletionChunk, any, undefined> {
+        let content = '';
+        let call_id = undefined;
+        let function_name = undefined;
+        let args = '';
+        for await (const chunk of stream) {
+          //console.log('chunk', chunk.choices[0].delta);
+          const chunk_content = chunk.choices[0].delta.content;
+          if (chunk_content !== undefined && chunk_content !== null) {
+            content += chunk_content;
+          }
+          if (chunk.choices[0].delta.tool_calls !== undefined) {
+            const tc = chunk.choices[0].delta.tool_calls[0];
+            if (tc.id !== undefined) call_id = tc.id;
+            if (tc.function?.name !== undefined) function_name = tc.function.name;
+            if (tc.function?.arguments !== undefined) args += tc.function.arguments
+          }
+
+          yield chunk;
+        }
+        if (function_name === undefined) {
+          await parent.addServerSideMessage({
+            chatId,
+            messages,
+            message: {role: 'assistant', content, tool_calls: undefined},
+          });
+        } else {
+          let functionCall = {name: function_name, arguments: args};
+          await parent.addServerSideMessage({
+            chatId,
+            messages,
+            message: {role: 'assistant', content, tool_calls: [{
+              type: 'function',
+              id: call_id!,
+              function: functionCall
+            }]},
+          });
+          await parent.handle(
+            functionCall,
+            messages,
+            chatId,
+            call_id,
+          );
+        }
+  }
+      return new Stream(iterator, stream.controller);
   }
 
   //
@@ -199,52 +263,52 @@ export class ArticulatorService {
   // If so, wait for the whole response and handle the function call.
   // Otherwise, return the stream as-is.
   //
-  async getFunctionCall(
-    stream: Stream<ChatCompletionChunk>
-  ): Promise<{ name: string; arguments: object } | null> {
-    for await (const obj of stream) {
-      if (obj.choices[0].delta.tool_calls)
-    }
+  // async getFunctionCall(
+  //   stream: Stream<ChatCompletionChunk>
+  // ): Promise<{ name: string; arguments: object } | null> {
+  //   for await (const obj of stream) {
+  //     if (obj.choices[0].delta.tool_calls)
+  //   }
 
-    const isFunctionCall = first
-      ?.replace(/[^a-zA-Z0-9_]/g, "")
-      ?.startsWith("function_call")
+  //   const isFunctionCall = first
+  //     ?.replace(/[^a-zA-Z0-9_]/g, "")
+  //     ?.startsWith("function_call")
 
-    if (!isFunctionCall) {
-      return null
-    }
+  //   if (!isFunctionCall) {
+  //     return null
+  //   }
 
-    //
-    // Function arguments are streamed as tokens, so we need to
-    // read the whole stream, concatenate the tokens, and parse the resulting JSON.
-    //
-    let result = first
+  //   //
+  //   // Function arguments are streamed as tokens, so we need to
+  //   // read the whole stream, concatenate the tokens, and parse the resulting JSON.
+  //   //
+  //   let result = first
 
-    while (true) {
-      const { done, value } = await reader.read()
+  //   while (true) {
+  //     const { done, value } = await reader.read()
 
-      if (done) {
-        break
-      }
+  //     if (done) {
+  //       break
+  //     }
 
-      result += value
-    }
+  //     result += value
+  //   }
 
-    //
-    // Return the resulting function call.
-    //
-    const json = JSON.parse(result)["function_call"]
-    console.log(`Function call: ${JSON.stringify(json)}`)
+  //   //
+  //   // Return the resulting function call.
+  //   //
+  //   const json = JSON.parse(result)["function_call"]
+  //   console.log(`Function call: ${JSON.stringify(json)}`)
 
-    // The following is needed due to tokens being streamed with escape characters.
-    json["arguments"] = JSON.parse(json["arguments"])
-    console.log(`Function call: ${JSON.stringify(json)}`)
-    return json as { name: string; arguments: object }
-  }
+  //   // The following is needed due to tokens being streamed with escape characters.
+  //   json["arguments"] = JSON.parse(json["arguments"])
+  //   console.log(`Function call: ${JSON.stringify(json)}`)
+  //   return json as { name: string; arguments: object }
+  // }
 
   private async handleArticulateCardFunction(
     chatId: string,
-    messages: ChatCompletionRequestMessage[]
+    messages: ChatCompletionMessage[]
   ): Promise<FunctionResult> {
     console.log("Articulating card for chat " + chatId)
     //
@@ -366,13 +430,13 @@ export class ArticulatorService {
     func: { name: string; arguments: any },
     messages: any[] = [],
     chatId: string,
-    caseId: string
-  ): Promise<{
-    response: Response
-    articulatedCard: ValuesCardData | null
-    submittedCard: ValuesCardData | null
-  }> {
+    tool_call_id: string,
+  ): Promise<undefined> {
     let functionResult: FunctionResult
+
+    if (tool_call_id === null || tool_call_id === undefined) {
+      throw new Error("Tool call ID is null or undefined.")
+    }
 
     console.log(`Handling function call ${func.name} for chat ${chatId}`)
 
@@ -380,7 +444,7 @@ export class ArticulatorService {
       case "guess_values_card": {
         console.log("Guessed!", func.arguments)
         functionResult = {
-          message: null,
+          message: '',
           articulatedCard: null,
           submittedCard: null,
         }
@@ -404,19 +468,20 @@ export class ArticulatorService {
       }
     }
 
-    if (functionResult.message) {
-      console.log(`Result from "${func.name}":\n${functionResult.message}`)
-
-      await this.addServerSideMessage({
-        chatId,
-        messages,
-        message: {
-          role: "function",
-          name: func.name,
-          content: functionResult.message,
-        },
-      })
+    if (functionResult.message === undefined) {
+      throw new Error("Function result message is undefined.")
     }
+    console.log(`Result from "${func.name}":\n${functionResult.message}`)
+
+    await this.addServerSideMessage({
+      chatId,
+      messages,
+      message: {
+        role: "tool",
+        tool_call_id,
+        content: functionResult.message,
+      },
+    })
 
     //
     // Call the OpenAI API with the function result.
@@ -425,19 +490,19 @@ export class ArticulatorService {
     // of the conversation.
     //
 
-    console.log(`Calling OpenAI API with function result...`)
-    console.log(`Messages:\n${JSON.stringify(messages)}`)
+    // console.log(`Calling OpenAI API with function result...`)
+    // console.log(`Messages:\n${JSON.stringify(messages)}`)
 
-    const response = await this.openai.createChatCompletion({
-      model: this.config.model,
-      messages,
-      temperature: 0.0,
-      functions: this.config.prompts.main.functions,
-      function_call: "none", // Prevent recursion.
-      stream: true,
-    })
+    // const response = await this.openai.chat.completions.create({
+    //   model: this.config.model,
+    //   messages,
+    //   temperature: 0.0,
+    //   functions: this.config.prompts.main.functions,
+    //   function_call: "none", // Prevent recursion.
+    //   stream: true,
+    // })
 
-    return { response, ...functionResult }
+    // return { response, ...functionResult }
   }
 
   async submitValuesCard(

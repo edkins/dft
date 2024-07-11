@@ -14,7 +14,7 @@ export interface ChatMessageProps {
 }
 
 function MessageContent({ message }: { message: Message }) {
-  if (message.role === 'function') {
+  if (message.role === 'function' || message.role === 'tool') {
     return <pre className="text-sm text-neutral-500 whitespace-pre-wrap">{message.content}</pre>
   } else if (message.function_call) {
     return <pre className="text-sm text-neutral-500 whitespace-pre-wrap">{JSON.stringify(message)}</pre>

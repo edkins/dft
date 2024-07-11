@@ -36,12 +36,10 @@ export async function evaluateTranscript(chat: Chat) {
       },
       ...messages,
     ],
-    function_call: {
-      name: "evaluate_dialogue",
-    },
-    functions: [evaluateDialogueFunction],
+    tool_choice: {type: 'function', function: {name: "evaluate_dialogue"}},
+    tools: [{type: 'function', function: evaluateDialogueFunction}],
   })
-  const result = JSON.parse(data.choices[0].message.tool_calls[0].function.arguments)
+  const result = JSON.parse(data.choices[0].message.tool_calls![0].function.arguments)
   result.metadata = evaluatorMetadata()
   return result
 }

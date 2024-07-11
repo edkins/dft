@@ -1,5 +1,5 @@
 import { CanonicalValuesCard, DeduplicatedCard, PrismaClient, ValuesCard } from "@prisma/client"
-import { Configuration, OpenAIApi } from "openai-edge"
+import OpenAI from "openai"
 import { db, inngest, openai } from "~/config.server"
 import { calculateAverageEmbedding } from "~/utils"
 
@@ -9,10 +9,10 @@ import { calculateAverageEmbedding } from "~/utils"
  * `pgvector` is not supported by Prisma, hence the raw queries.
  */
 export default class EmbeddingService {
-  private openai: OpenAIApi
+  private openai: OpenAI
   private db: PrismaClient
 
-  constructor(openai: OpenAIApi, db: PrismaClient) {
+  constructor(openai: OpenAI, db: PrismaClient) {
     this.openai = openai
     this.db = db
   }
@@ -22,12 +22,11 @@ export default class EmbeddingService {
   }
 
   private async embed(str: string): Promise<number[]> {
-    const res = await this.openai.createEmbedding({
+    const data = await this.openai.embeddings.create({
       model: "text-embedding-ada-002",
       input: str,
     })
-    const body = await res.json()
-    return body.data[0].embedding
+    return data.data[0].embedding
   }
 
   async embedCanonicalCard(card: CanonicalValuesCard): Promise<void> {
@@ -160,10 +159,10 @@ export const embed = inngest.createFunction(
     //
     // Prepare the service.
     //
-    const configuration = new Configuration({
+    const configuration = {
       apiKey: process.env.OPENAI_API_KEY,
-    })
-    const openai = new OpenAIApi(configuration)
+    }
+    const openai = new OpenAI(configuration)
     const service = new EmbeddingService(openai, db)
 
     const canonicalCards = (await step.run(

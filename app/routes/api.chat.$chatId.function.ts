@@ -26,7 +26,7 @@ export const loader: LoaderFunction = async ({
 
   const messages = chat?.transcript as any as Message[]
   const lastMessage = messages[messages.length - 1]
-  const functionName = (lastMessage.function_call as any)?.name
+  const functionName = (lastMessage.tool_calls as any)?.at(0)?.function?.name
 
   return json({ function: getDisplayName(functionName) })
 }

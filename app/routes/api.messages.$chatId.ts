@@ -20,8 +20,23 @@ function mergeMessages(oldMessages: Message[], newMessages: Message[]) {
     const oldMessage = oldMessages.find(
       (message) => message.content === newMessage.content
     )
-    if (!oldMessage) break
+    if (!oldMessage) {
+      console.log("Found a new message", newMessage.content);
+      break
+    }
     i--
+  }
+  if (i === -1) {
+    console.log('i === -1 in mergeMessages');
+    return;
+  }
+  const new_stuff = newMessages.slice(i);
+  if (new_stuff.length > 0) {
+    console.log("I've just heckin merged some messages. This might be a race condition")
+    /*for (const oldMessage of oldMessages) {
+      console.log(oldMessage.content);
+    }*/
+    console.log(new_stuff)
   }
   return [...oldMessages, ...newMessages.slice(i)]
 }

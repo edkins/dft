@@ -212,46 +212,59 @@ export class ArticulatorService {
         let call_id = undefined;
         let function_name = undefined;
         let args = '';
-        for await (const chunk of stream) {
-          //console.log('chunk', chunk.choices[0].delta);
-          const chunk_content = chunk.choices[0].delta.content;
-          if (chunk_content !== undefined && chunk_content !== null) {
-            content += chunk_content;
-          }
-          if (chunk.choices[0].delta.tool_calls !== undefined) {
-            const tc = chunk.choices[0].delta.tool_calls[0];
-            if (tc.id !== undefined) call_id = tc.id;
-            if (tc.function?.name !== undefined) function_name = tc.function.name;
-            if (tc.function?.arguments !== undefined) args += tc.function.arguments
-          }
+        console.log("Starting to process chunks...");
+        try {
+          for await (const chunk of stream) {
+            console.log('chunk', chunk.choices[0].delta);
+            const chunk_content = chunk.choices[0].delta.content;
+            if (chunk_content !== undefined && chunk_content !== null) {
+              content += chunk_content;
+            }
+            if (chunk.choices[0].delta.tool_calls !== undefined) {
+              const tc = chunk.choices[0].delta.tool_calls[0];
+              console.log('tool_calls', tc);
+              if (tc.id !== undefined) call_id = tc.id;
+              if (tc.function?.name !== undefined) function_name = tc.function.name;
+              if (tc.function?.arguments !== undefined) args += tc.function.arguments
+            }
 
-          yield chunk;
+            if (chunk.choices[0].finish_reason !== null) {
+              console.log("Found a finish_reason", chunk.choices[0].finish_reason);
+              if (function_name === undefined) {
+                await parent.addServerSideMessage({
+                  chatId,
+                  messages,
+                  message: {role: 'assistant', content, tool_calls: undefined},
+                });
+              } else {
+                let functionCall = {name: function_name, arguments: args};
+                await parent.addServerSideMessage({
+                  chatId,
+                  messages,
+                  message: {role: 'assistant', content, tool_calls: [{
+                    type: 'function',
+                    id: call_id!,
+                    function: functionCall
+                  }]},
+                });
+                await parent.handle(
+                  functionCall,
+                  messages,
+                  chatId,
+                  call_id!,
+                );
+              }
+            }
+            yield chunk;
+          }
+          console.log("Yielded all the chunks");
+        } catch (e) {
+          console.log(e);
+          throw e;
+        } finally {
+          console.log("Finally block");
         }
-        if (function_name === undefined) {
-          await parent.addServerSideMessage({
-            chatId,
-            messages,
-            message: {role: 'assistant', content, tool_calls: undefined},
-          });
-        } else {
-          let functionCall = {name: function_name, arguments: args};
-          await parent.addServerSideMessage({
-            chatId,
-            messages,
-            message: {role: 'assistant', content, tool_calls: [{
-              type: 'function',
-              id: call_id!,
-              function: functionCall
-            }]},
-          });
-          await parent.handle(
-            functionCall,
-            messages,
-            chatId,
-            call_id,
-          );
-        }
-  }
+      }
       return new Stream(iterator, stream.controller);
   }
 

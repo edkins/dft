@@ -55,22 +55,22 @@ export const action: ActionFunction = async ({
       caseId,
     })
 
-  if (etc.functionCall) {
-    // If a function call is present in the stream, handle it...
-    return streaming_text_response(
-      etc.response,
-      await createHeaders(etc.articulatedCard, etc.submittedCard),
-    )
-  } else {
+  // if (etc.functionCall) {
+  //   // If a function call is present in the stream, handle it...
+  //   return streaming_text_response(
+  //     etc.response,
+  //     await createHeaders(etc.articulatedCard, etc.submittedCard),
+  //   )
+  // } else {
     // ...otherwise, return the response.
     return streaming_text_response(
       completionResponse!,
       await createHeaders(),
     )
-  }
+  //}
 }
 
-function streaming_text_response(stream: Stream<ChatCompletionChunk>, headers: { [key: string]: string }) {
+function streaming_text_response(stream: Stream<ChatCompletionChunk>, headers: { [key: string]: string }): Response {
   return new Response(to_readable_stream_text_only(stream), {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
@@ -94,10 +94,8 @@ function to_readable_stream_text_only(stream: Stream<ChatCompletionChunk>): Read
         const { value, done } = await iter.next();
         if (done) return ctrl.close();
 
-        if (value.choices[0].delta.content !== null && value.choices[0].delta.content !== undefined) {
-          const bytes = encoder.encode(value.choices[0].delta.content!);
-          ctrl.enqueue(bytes);
-        }
+        const bytes = encoder.encode(value.choices[0].delta.content ?? '');
+        ctrl.enqueue(bytes);
       } catch (err) {
         ctrl.error(err);
       }

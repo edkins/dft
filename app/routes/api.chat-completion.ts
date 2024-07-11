@@ -1,7 +1,7 @@
 import { auth, db, openai } from "~/config.server"
 import { ActionArgs, ActionFunction, Response } from "@remix-run/node"
 import { ValuesCardData } from "~/lib/consts"
-import { ArticulatorService } from "~/services/articulator"
+import { ArticulatorService, MyEnrichedChunk } from "~/services/articulator"
 import DeduplicationService from "~/services/deduplication"
 import { Stream } from "openai/streaming"
 import { ChatCompletionChunk } from "openai/resources"
@@ -35,6 +35,9 @@ export const action: ActionFunction = async ({
 }: ActionArgs): Promise<Response> => {
   const articulatorConfig = process.env.ARTICULATOR_CONFIG ?? "default"
   const userId = await auth.getUserId(request)
+  if (userId === null) {
+    throw new Error("No user id")
+  }
   const json = await request.json()
 
   const { messages, chatId, caseId, function_call } = json
@@ -63,38 +66,31 @@ export const action: ActionFunction = async ({
   //   )
   // } else {
     // ...otherwise, return the response.
-    return streaming_text_response(
-      completionResponse!,
-      await createHeaders(),
-    )
+    return await streaming_text_response(completionResponse!)
   //}
 }
 
-function streaming_text_response(stream: Stream<ChatCompletionChunk>, headers: { [key: string]: string }): Response {
-  return new Response(to_readable_stream_text_only(stream), {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      ...headers,
-    },
-  })
-}
-
-function to_readable_stream_text_only(stream: Stream<ChatCompletionChunk>): ReadableStream {
-  let iter: AsyncIterator<ChatCompletionChunk>;
+async function streaming_text_response(stream: Stream<MyEnrichedChunk>): Promise<Response> {
+  let iter = stream[Symbol.asyncIterator]();
   const encoder = new TextEncoder();
 
-  return new ReadableStream({
-    async start() {
-      console.log("Starting stream");
-      console.log(stream[Symbol.asyncIterator]);
-      iter = stream[Symbol.asyncIterator]();
-    },
+  let initialChunk = await iter.next();
+  const headers = await createHeaders(initialChunk.value.articulatedCard, initialChunk.value.submittedCard);
+
+  const readableStream = new ReadableStream({
+    async start() {},
     async pull(ctrl: any) {
       try {
         const { value, done } = await iter.next();
-        if (done) return ctrl.close();
+        if (done && initialChunk.done) return ctrl.close();
 
-        const bytes = encoder.encode(value.choices[0].delta.content ?? '');
+        let initial_content = '';
+        if (!initialChunk.done) {
+          initial_content = initialChunk.value.chunk_content;
+          initialChunk.done = true as any;
+        }
+        const chunk_content = value?.chunk_content || '';
+        const bytes = encoder.encode(initial_content + chunk_content);
         ctrl.enqueue(bytes);
       } catch (err) {
         ctrl.error(err);
@@ -104,4 +100,11 @@ function to_readable_stream_text_only(stream: Stream<ChatCompletionChunk>): Read
       await iter.return?.();
     },
   });
+
+  return new Response(readableStream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      ...headers,
+    },
+  })
 }

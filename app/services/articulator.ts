@@ -26,6 +26,12 @@ type FunctionResult = {
   submittedCard: ValuesCardData | null
 }
 
+export type MyEnrichedChunk = {
+  chunk_content: string,
+  articulatedCard: ValuesCardData | null, // will only be present in the first chunk
+  submittedCard: ValuesCardData | null,
+}
+
 export function normalizeMessage(
   message: ChatCompletionMessage
 ): ChatCompletionMessage {
@@ -205,64 +211,73 @@ export class ArticulatorService {
       chatId: string,
       messages: any,
       stream: Stream<ChatCompletionChunk>
-    ): Stream<ChatCompletionChunk> {
+    ): Stream<MyEnrichedChunk> {
       const parent = this;
-      async function* iterator(): AsyncIterator<ChatCompletionChunk, any, undefined> {
+      async function* iterator(): AsyncIterator<MyEnrichedChunk, any, undefined> {
         let content = '';
         let call_id = undefined;
         let function_name = undefined;
         let args = '';
-        console.log("Starting to process chunks...");
-        try {
-          for await (const chunk of stream) {
-            console.log('chunk', chunk.choices[0].delta);
-            const chunk_content = chunk.choices[0].delta.content;
-            if (chunk_content !== undefined && chunk_content !== null) {
-              content += chunk_content;
-            }
-            if (chunk.choices[0].delta.tool_calls !== undefined) {
-              const tc = chunk.choices[0].delta.tool_calls[0];
-              console.log('tool_calls', tc);
-              if (tc.id !== undefined) call_id = tc.id;
-              if (tc.function?.name !== undefined) function_name = tc.function.name;
-              if (tc.function?.arguments !== undefined) args += tc.function.arguments
-            }
-
-            if (chunk.choices[0].finish_reason !== null) {
-              console.log("Found a finish_reason", chunk.choices[0].finish_reason);
-              if (function_name === undefined) {
-                await parent.addServerSideMessage({
-                  chatId,
-                  messages,
-                  message: {role: 'assistant', content, tool_calls: undefined},
-                });
-              } else {
-                let functionCall = {name: function_name, arguments: args};
-                await parent.addServerSideMessage({
-                  chatId,
-                  messages,
-                  message: {role: 'assistant', content, tool_calls: [{
-                    type: 'function',
-                    id: call_id!,
-                    function: functionCall
-                  }]},
-                });
-                await parent.handle(
-                  functionCall,
-                  messages,
-                  chatId,
-                  call_id!,
-                );
-              }
-            }
-            yield chunk;
+        let first = true;
+        for await (const chunk of stream) {
+          let articulatedCard = null;
+          let submittedCard = null;
+          const chunk_content = chunk.choices[0].delta.content ?? '';
+          content += chunk_content;
+          if (chunk.choices[0].delta.tool_calls !== undefined) {
+            const tc = chunk.choices[0].delta.tool_calls[0];
+            if (tc.id !== undefined) call_id = tc.id;
+            if (tc.function?.name !== undefined) function_name = tc.function.name;
+            if (tc.function?.arguments !== undefined) args += tc.function.arguments
           }
-          console.log("Yielded all the chunks");
-        } catch (e) {
-          console.log(e);
-          throw e;
-        } finally {
-          console.log("Finally block");
+
+          if (chunk.choices[0].finish_reason !== null) {
+            if (function_name === undefined) {
+              await parent.addServerSideMessage({
+                chatId,
+                messages,
+                message: {role: 'assistant', content, tool_calls: undefined},
+              });
+            } else {
+              let functionCall = {name: function_name, arguments: args};
+              await parent.addServerSideMessage({
+                chatId,
+                messages,
+                message: {role: 'assistant', content, tool_calls: [{
+                  type: 'function',
+                  id: call_id!,
+                  function: functionCall
+                }]},
+              });
+              const results = await parent.handle(
+                functionCall,
+                messages,
+                chatId,
+                call_id!,
+              );
+              articulatedCard = results.articulatedCard;
+              submittedCard = results.submittedCard;
+            }
+          }
+
+          // Current contract is that we only return these if they're available at the beginning
+          if (articulatedCard !== null && !first) {
+            console.log("Warning: swallowing articulatedCard");
+            articulatedCard = null;
+          }
+          if (submittedCard !== null && !first) {
+            console.log("Warning: swallowing submittedCard");
+            submittedCard = null;
+          }
+
+          if (chunk_content !== '' || articulatedCard !== null || submittedCard !== null) {
+            yield {chunk_content, articulatedCard, submittedCard};
+            first = false;
+          }
+        }
+        if (first) {
+          console.log("Warning: emitting empty stream");
+          yield {chunk_content: content, articulatedCard: null, submittedCard: null};
         }
       }
       return new Stream(iterator, stream.controller);
@@ -445,7 +460,10 @@ export class ArticulatorService {
     messages: any[] = [],
     chatId: string,
     tool_call_id: string,
-  ): Promise<undefined> {
+  ): Promise<{
+    articulatedCard: ValuesCardData | null
+    submittedCard: ValuesCardData | null
+  }> {
     let functionResult: FunctionResult
 
     if (tool_call_id === null || tool_call_id === undefined) {
@@ -485,7 +503,10 @@ export class ArticulatorService {
     }
 
     if (functionResult.message === null || functionResult.message === undefined) {
-      return;
+      return {
+        articulatedCard: functionResult.articulatedCard,
+        submittedCard: functionResult.submittedCard,
+      };
     }
     console.log(`Result from "${func.name}":\n${functionResult.message}`)
 
@@ -519,6 +540,10 @@ export class ArticulatorService {
     // })
 
     // return { response, ...functionResult }
+    return {
+      articulatedCard: functionResult.articulatedCard,
+      submittedCard: functionResult.submittedCard,
+    };
   }
 
   async submitValuesCard(
